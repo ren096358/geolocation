@@ -1,0 +1,280 @@
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css">
+		<script src="http://code.jquery.com/jquery-1.11.3.min.js"></script>
+		<script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+		<script src="http://maps.googleapis.com/maps/api/js?key=AIzaSyDEZQCK1oifHGahGjAiyuyQ5KbiU3nRE8k"></script>
+		<style>
+			table, td, th{    
+				border: 1px solid #ddd;
+			}
+			th, td {
+				padding: 15px;
+			}
+		</style>
+		<script>
+			var map = null;
+			function init() {
+				$("#pageOne").on("click", function () {
+					getOpenDataArray();
+				});
+
+				$("#pageTwo").on("click", function () {
+					map = null;
+					while (document.getElementById("googleMap").hasChildNodes()) {
+						document.getElementById("googleMap").removeChild(document.getElementById("googleMap").childNodes[0]);
+					}
+					getLocation();
+				});
+
+				$("#pageThree").on("click", function () {
+					map = null;
+					getLocation2();
+				});
+
+			}
+
+			$(document).on("pagecreate", "#home", function () {
+				init();
+			});
+
+			function getOpenDataArray() {
+				var xhttp = new XMLHttpRequest();
+				var url = "http://data.kaohsiung.gov.tw/Opendata/DownLoad.aspx?Type=2&CaseNo1=AV&CaseNo2=2&FileType=1&Lang=C&FolderType=";
+				xhttp.onreadystatechange = function () {
+					if (xhttp.readyState == 4 && xhttp.status == 200) {
+						var openData = xhttp.responseText;
+						showOpenDataList(openData);
+					}
+				};
+				xhttp.open("GET", url, true);
+				xhttp.send();
+			}
+
+			function showOpenDataList(openData) {
+				var openDataDiv = $("#openDataDiv");
+				var table = document.createElement("table");
+				table.align = "center";
+				var tr = document.createElement("tr");
+				var th = document.createElement("th");
+				th.innerHTML = "餐廳名稱";
+				tr.appendChild(th);
+
+				var th = document.createElement("th");
+				th.innerHTML = "簡介";
+				tr.appendChild(th);
+
+				var th = document.createElement("th");
+				th.innerHTML = "開店時間";
+				tr.appendChild(th);
+
+				table.appendChild(tr);
+				$("#openDataDiv").append(table);
+
+				var obj = JSON.parse(openData);
+				for (var key in obj) {
+					var tr = document.createElement("tr");
+					for (var item in obj[key]) {
+						if (item == "Name") {
+							var td = document.createElement("td");
+							td.innerHTML = obj[key]["Name"];
+							tr.appendChild(td);
+						}
+						if (item == "Description") {
+							var td = document.createElement("td");
+							td.innerHTML = obj[key]["Description"];
+							tr.appendChild(td);
+						}
+						if (item == "Opentime") {
+							var td = document.createElement("td");
+							td.innerHTML = obj[key]["Opentime"];
+							tr.appendChild(td);
+						}
+					}
+					table.appendChild(tr);
+				}
+			}
+
+			function getLocation() {
+				if (navigator.geolocation) {
+					navigator.geolocation.getCurrentPosition(showPosition);
+				} else {
+					alert("Geolocation is not supported by this browser.");
+				}
+			}
+			function showPosition(position) {
+				var lat = position.coords.latitude;
+				var lon = position.coords.longitude;
+				initialize(lat, lon);
+			}
+			function initialize(lat, lon)
+			{
+				var googleMap = document.getElementById("googleMap");
+				//create map
+				googleMap.style.height = "300px";
+				googleMap.style.width = "500px";
+				var mapProp = {
+					center: new google.maps.LatLng(lat, lon),
+					zoom: 15,
+					mapTypeId: google.maps.MapTypeId.ROADMAP
+				};
+				map = new google.maps.Map(googleMap, mapProp);
+
+				//create target
+				var marker = new google.maps.Marker({
+					position: new google.maps.LatLng(lat, lon),
+				});
+
+				marker.setMap(map);
+				//click appear infowindow
+				var infowindow = new google.maps.InfoWindow({
+					content: "Nice To Meet You! " + lat + "," + lon
+				});
+
+				google.maps.event.addListener(marker, 'click', function () {
+					infowindow.open(map, marker);
+				});
+			}
+
+			function getLocation2() {
+				if (navigator.geolocation) {
+					navigator.geolocation.getCurrentPosition(showPosition2);
+				} else {
+					alert("Geolocation is not supported by this browser.");
+				}
+			}
+
+			function showPosition2(position) {
+				var lat = position.coords.latitude;
+				var lon = position.coords.longitude;
+				var xmlhttp = new XMLHttpRequest();
+				var url = "http://data.kaohsiung.gov.tw/Opendata/DownLoad.aspx?Type=2&CaseNo1=AV&CaseNo2=2&FileType=1&Lang=C&FolderType=";
+				xmlhttp.onreadystatechange = function () {
+					if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+						getNearPlaceArray(xmlhttp.responseText, lat, lon);
+					}
+				}
+				xmlhttp.open("GET", url, true);
+				xmlhttp.send();
+			}
+
+			function getNearPlaceArray(response, lat, lon) {
+				var array = JSON.parse(response);
+				var markArray = new Array();
+				var count = 0;
+				for (var i = 0; i < array.length; i++) {
+					var distance = getDistance(lat, lon, array[i].Py, array[i].Px);
+					if (distance <= 5) {
+						markArray[count] = [array[i].Name, array[i].Py, array[i].Px];
+						count++;
+					}
+				}
+				initialize2(lat, lon, markArray);
+			}
+			function getDistance(lat1, lng1, lat2, lng2) {
+				var radLat1 = rad(lat1);
+				var radLat2 = rad(lat2);
+				var a = radLat1 - radLat2;
+				var b = rad(lng1) - rad(lng2);
+				var s = 2 * Math.asin(Math.sqrt(Math.pow(Math.sin(a / 2), 2) +
+						Math.cos(radLat1) * Math.cos(radLat2) * Math.pow(Math.sin(b / 2), 2)));
+				s = s * 6371;//地球半徑6371km
+				s = Math.round(s * 10000) / 10000;
+				return s;
+			}
+
+			function rad(d) {
+				return d * Math.PI / 180.0;
+			}
+
+			function initialize2(lat, lon, markArray) {
+				var googleMap = document.getElementById("googleMap2");
+				googleMap.style.height = "300px";
+				googleMap.style.width = "500px";
+				map = {
+					zoom: 10,
+					center: new google.maps.LatLng(lat, lon),
+					mapTypeId: google.maps.MapTypeId.ROADMAP
+				};
+
+				map = new google.maps.Map(googleMap, map);
+				var infowindow = new google.maps.InfoWindow();
+
+				var marker, i;
+
+				for (i = 0; i < markArray.length; i++) {
+					marker = new google.maps.Marker({
+						position: new google.maps.LatLng(markArray[i][1], markArray[i][2]),
+						map: map
+					});
+
+					google.maps.event.addListener(marker, 'click', (function (marker, i) {
+						return function () {
+							infowindow.setContent(markArray[i][0]);
+							infowindow.open(map, marker);
+						};
+					})(marker, i));
+				}
+			}
+
+		</script>
+	</head>
+	<body>
+		<div data-role="page" id="home">
+			<div data-role="header">
+				<h1>高雄市 Opendata & Google 地圖定位</h1>
+				<div data-role="navbar">
+					<ul>
+						<li><a href="#openDataPage" id="pageOne" data-transition="flip">OpenData</a></li>
+						<li><a href="#openGeolocationPage" id="pageTwo" data-transition="slideup">Geolocation</a></li>
+						<li><a href="#openLocationPage" id="pageThree" data-transition="pop">OpenData Geolocation</a></li>
+					</ul>
+				</div>
+			</div>
+			<div data-role="footer">
+				<h1>Made By @翔仁</h1>
+			</div>
+		</div>
+		<div data-role="page" id="openDataPage">
+			<div data-role="header">
+				<h1>JsonData Display</h1>
+				<a href="#home" data-transition="flip" data-direction="reverse">GO BACK</a>
+			</div>
+			<div data-role="main" class="ui-content">
+				<div id="openDataDiv"></div>
+			</div>
+			<div data-role="footer">
+				<h1>JsonData Display</h1>
+			</div>
+		</div>
+
+		<div data-role="page" id="openGeolocationPage">
+			<div data-role="header">
+				<h1>Geolocation</h1>
+				<a href="#home" data-transition="slideup" data-direction="reverse">GO BACK</a>
+			</div>
+			<div data-role="main" class="ui-content">
+				<div id="googleMap" style="margin: 0 auto;"></div>
+			</div>
+			<div data-role="footer">
+				<h1>Geolocation Display</h1>
+			</div>
+		</div>
+
+		<div data-role="page" id="openLocationPage">
+			<div data-role="header">
+				<h1>OpenData Geolocation</h1>
+				<a href="#home" data-transition="pop" data-direction="reverse">GO BACK</a>
+			</div>
+			<div data-role="main" class="ui-content">
+				<div id="googleMap2" style="margin: 0 auto;"></div>
+			</div>
+			<div data-role="footer">
+				<h1>OpenData Geolocation Display</h1>
+			</div>
+		</div>
+
+	</body>
+</html>
