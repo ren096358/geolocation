@@ -15,22 +15,16 @@
 			}
 		</style>
 		<script>
-			var map = null;
 			function init() {
 				$("#pageOne").on("click", function () {
 					getOpenDataArray();
 				});
 
 				$("#pageTwo").on("click", function () {
-					map = null;
-					while (document.getElementById("googleMap").hasChildNodes()) {
-						document.getElementById("googleMap").removeChild(document.getElementById("googleMap").childNodes[0]);
-					}
 					getLocation();
 				});
 
 				$("#pageThree").on("click", function () {
-					map = null;
 					getLocation2();
 				});
 
@@ -104,31 +98,32 @@
 					alert("Geolocation is not supported by this browser.");
 				}
 			}
+
 			function showPosition(position) {
 				var lat = position.coords.latitude;
 				var lon = position.coords.longitude;
 				initialize(lat, lon);
 			}
-			function initialize(lat, lon)
-			{
+
+			function initialize(lat, lon) {
 				var googleMap = document.getElementById("googleMap");
-				//create map
 				googleMap.style.height = "300px";
 				googleMap.style.width = "500px";
-				var mapProp = {
+
+				//建立地圖
+				var map = {
 					center: new google.maps.LatLng(lat, lon),
 					zoom: 15,
-					mapTypeId: google.maps.MapTypeId.ROADMAP
 				};
 				map = new google.maps.Map(googleMap, mapProp);
 
-				//create target
+				//建立 mark
 				var marker = new google.maps.Marker({
 					position: new google.maps.LatLng(lat, lon),
 				});
-
 				marker.setMap(map);
-				//click appear infowindow
+
+				//點擊提示視窗
 				var infowindow = new google.maps.InfoWindow({
 					content: "Nice To Meet You! " + lat + "," + lon
 				});
@@ -147,8 +142,10 @@
 			}
 
 			function showPosition2(position) {
-				var lat = position.coords.latitude;
-				var lon = position.coords.longitude;
+				//高雄火車站的經緯度
+				var lat = 22.6397615;
+				var lon = 120.2999183;
+
 				var xmlhttp = new XMLHttpRequest();
 				var url = "https://data.kaohsiung.gov.tw/Opendata/DownLoad.aspx?Type=2&CaseNo1=AV&CaseNo2=2&FileType=1&Lang=C&FolderType=";
 				xmlhttp.onreadystatechange = function () {
@@ -166,25 +163,35 @@
 				var count = 0;
 				for (var i = 0; i < array.length; i++) {
 					var distance = getDistance(lat, lon, array[i].Py, array[i].Px);
-					if (distance <= 5) {
+					//距離小於兩公里內的餐廳，記錄下來
+					if (distance < 2) {
 						markArray[count] = [array[i].Name, array[i].Py, array[i].Px];
 						count++;
 					}
 				}
 				initialize2(lat, lon, markArray);
 			}
+
 			function getDistance(lat1, lng1, lat2, lng2) {
+				//將經緯度轉換為弳度
 				var radLat1 = rad(lat1);
 				var radLat2 = rad(lat2);
 				var a = radLat1 - radLat2;
 				var b = rad(lng1) - rad(lng2);
+
+				//參考 Haversine 公式，計算兩經緯度的距離
 				var s = 2 * Math.asin(Math.sqrt(Math.pow(Math.sin(a / 2), 2) +
 						Math.cos(radLat1) * Math.cos(radLat2) * Math.pow(Math.sin(b / 2), 2)));
 				s = s * 6371;//地球半徑6371km
+
+				//取小數點後第四位四捨五入
 				s = Math.round(s * 10000) / 10000;
 				return s;
 			}
 
+			/*
+			 * 將經緯度轉換成弳度
+			 */
 			function rad(d) {
 				return d * Math.PI / 180.0;
 			}
@@ -193,30 +200,37 @@
 				var googleMap = document.getElementById("googleMap2");
 				googleMap.style.height = "300px";
 				googleMap.style.width = "500px";
-				map = {
-					zoom: 10,
+
+				//建立地圖
+				var map = {
+					zoom: 13,
 					center: new google.maps.LatLng(lat, lon),
-					mapTypeId: google.maps.MapTypeId.ROADMAP
 				};
-
 				map = new google.maps.Map(googleMap, map);
-				var infowindow = new google.maps.InfoWindow();
 
-				var marker, i;
-
-				for (i = 0; i < markArray.length; i++) {
-					marker = new google.maps.Marker({
+				for (var i = 0; i < markArray.length; i++) {
+					//建立餐廳的mark
+					var marker = new google.maps.Marker({
 						position: new google.maps.LatLng(markArray[i][1], markArray[i][2]),
 						map: map
 					});
-
-					google.maps.event.addListener(marker, 'click', (function (marker, i) {
-						return function () {
-							infowindow.setContent(markArray[i][0]);
-							infowindow.open(map, marker);
-						};
-					})(marker, i));
+					
+					//建立提示視窗
+					attachInfoWindow(marker, markArray[i][0])
 				}
+			}
+			
+			/*
+			 * 點擊出現提示視窗
+			 */
+			function attachInfoWindow(marker, content) {
+				var infowindow = new google.maps.InfoWindow({
+					content: content
+				});
+
+				marker.addListener('click', function () {
+					infowindow.open(marker.get('map'), marker);
+				});
 			}
 
 		</script>
